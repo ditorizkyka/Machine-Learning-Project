@@ -6,80 +6,194 @@ import os
 import pandas as pd
 from sklearn.decomposition import PCA
 
-# Load model
-model_path = os.path.join("models", "kmeans_model.pkl")
-model = joblib.load(model_path)
+@st.cache_resource
+def load_models():
+    kmeans_model = joblib.load('models/kmeans_model.pkl')
+    scaler = joblib.load('models/scaler.pkl')
+    return kmeans_model, scaler
 
-st.title("Segmentasi Pelanggan dengan Clustering (KMeans)")
+try:
+    kmeans_model, scaler = load_models()
+    st.title("Segmentasi Pelanggan dengan Clustering (KMeans)")
+    st.write(f"Model ini dilatih dengan {kmeans_model.n_features_in_} fitur dan {kmeans_model.n_clusters} cluster")
+    
+    st.write("## Masukkan data pelanggan:")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        avg_credit = st.slider("Batas/Limit Credit Rata-Rata", 3000.0, 34574.0, 15000.0)
+        total_credit_card = st.slider("Jumlah Kartu Kredit", 1, 10, 4)
+        total_visit_bank = st.slider("Jumlah Kunjungan ke Bank", 0, 5, 2)
+    
+    with col2:
+        total_visit_online = st.slider("Jumlah Kunjungan Online", 0, 15, 5)
+        total_calls_made = st.slider("Jumlah Panggilan", 0, 10, 3)
+    
+    new_data = pd.DataFrame({
+        'Avg_Credit_Limit': [avg_credit],
+        'Total_Credit_Cards': [total_credit_card],
+        'Total_visits_bank': [total_visit_bank],
+        'Total_visits_online': [total_visit_online],
+        'Total_calls_made': [total_calls_made]
+    })
+    
+    columns_to_scale = ['Avg_Credit_Limit', 'Total_Credit_Cards', 'Total_visits_bank', 
+                       'Total_visits_online', 'Total_calls_made']
+    
+    if st.button("Prediksi Cluster", type="primary"):
+        try:
+            st.write("### Data yang Dimasukkan:")
+            st.dataframe(new_data, use_container_width=True)
+            
+            new_data_scaled = scaler.transform(new_data[columns_to_scale])
+            
+            predicted_cluster = kmeans_model.predict(new_data_scaled)
+            
+            st.success(f"🎯 Pelanggan ini termasuk dalam **Cluster {predicted_cluster[0]}**")
+            
+            cluster_interpretation = {
+                0: "Low Value Customer - Pelanggan dengan aktivitas dan limit kredit rendah",
+                1: "Medium Value Customer - Pelanggan dengan aktivitas dan limit kredit sedang", 
+                2: "High Value Customer - Pelanggan dengan aktivitas dan limit kredit tinggi"
+            }
+            
+            if predicted_cluster[0] in cluster_interpretation:
+                st.info(f"📊 **Interpretasi**: {cluster_interpretation[predicted_cluster[0]]}")
+            
+            st.write("### Visualisasi Posisi Pelanggan dalam Cluster")
+            
+            data_file_paths = ["customer_data.csv", "models/customer_data.csv", "data/Credit Card Customer Data.csv"]
+            full_data = None
+            
+            for path in data_file_paths:
+                if os.path.exists(path):
+                    try:
+                        full_data = pd.read_csv(path)
+                        st.info(f"Dataset ditemukan: {path}")
+                        break
+                    except Exception as e:
+                        continue
+            
+            if full_data is not None:
+                required_columns = columns_to_scale
+                if all(col in full_data.columns for col in required_columns):
+                    if len(full_data) > 1000:
+                        sample_data = full_data.sample(n=1000, random_state=42)
+                    else:
+                        sample_data = full_data
+                    
+                    try:
+                        # Scale data lengkap
+                        full_data_scaled = scaler.transform(sample_data[required_columns])
+                        
+                        # Prediksi cluster untuk data lengkap
+                        full_labels = kmeans_model.predict(full_data_scaled)
+                        
+                        # Gabungkan data user dengan dataset untuk visualisasi
+                        combined_data_scaled = np.vstack([full_data_scaled, new_data_scaled])
+                        
+                        # PCA untuk visualisasi 2D
+                        pca = PCA(n_components=2)
+                        reduced_data = pca.fit_transform(combined_data_scaled)
+                        
+                        # Plot
+                        fig, ax = plt.subplots(figsize=(10, 8))
+                        colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7']
+                        
+                        # Plot semua cluster
+                        for i in range(kmeans_model.n_clusters):
+                            cluster_mask = full_labels == i
+                            if np.any(cluster_mask):
+                                cluster_points = reduced_data[:-1][cluster_mask]  # Exclude user point
+                                ax.scatter(cluster_points[:, 0], cluster_points[:, 1],
+                                         label=f"Cluster {i}", alpha=0.6, 
+                                         color=colors[i % len(colors)], s=50)
+                        
+                        # Plot titik input user
+                        user_point = reduced_data[-1]
+                        ax.scatter(user_point[0], user_point[1], 
+                                 color='red', s=300, edgecolors='black', 
+                                 label="Input Anda", marker='*', linewidth=2)
+                        
+                        # Plot centroids
+                        centroids_scaled = kmeans_model.cluster_centers_
+                        centroids_pca = pca.transform(centroids_scaled)
+                        ax.scatter(centroids_pca[:, 0], centroids_pca[:, 1],
+                                 color='black', s=200, marker='x', 
+                                 label='Centroids', linewidth=3)
+                        
+                        ax.set_xlabel(f"PCA Komponen 1 ({pca.explained_variance_ratio_[0]:.1%} variance)")
+                        ax.set_ylabel(f"PCA Komponen 2 ({pca.explained_variance_ratio_[1]:.1%} variance)")
+                        ax.set_title("Visualisasi Klaster Pelanggan")
+                        ax.legend()
+                        ax.grid(True, alpha=0.3)
+                        
+                        st.pyplot(fig)
+                        
+                        # Informasi tambahan
+                        st.write("### Informasi PCA")
+                        st.write(f"- Komponen 1 menjelaskan {pca.explained_variance_ratio_[0]:.1%} dari variasi data")
+                        st.write(f"- Komponen 2 menjelaskan {pca.explained_variance_ratio_[1]:.1%} dari variasi data")
+                        st.write(f"- Total variasi yang dijelaskan: {sum(pca.explained_variance_ratio_):.1%}")
+                        
+                    except Exception as e:
+                        st.error(f"Error dalam visualisasi: {str(e)}")
+                        st.write("Menggunakan visualisasi sederhana...")
+                        
+                        # Visualisasi sederhana tanpa data lengkap
+                        fig, ax = plt.subplots(figsize=(8, 6))
+                        ax.scatter(0, 0, color='red', s=300, marker='*', 
+                                 label=f'Input Anda (Cluster {predicted_cluster[0]})')
+                        ax.set_title("Prediksi Cluster Anda")
+                        ax.legend()
+                        st.pyplot(fig)
+                else:
+                    st.warning("Dataset tidak memiliki kolom yang diperlukan untuk visualisasi")
+            else:
+                st.warning("Dataset tidak ditemukan. Menampilkan hasil prediksi tanpa visualisasi.")
+                
+                # Tampilkan informasi cluster sederhana
+                fig, ax = plt.subplots(figsize=(6, 4))
+                ax.text(0.5, 0.5, f'Cluster {predicted_cluster[0]}', 
+                       ha='center', va='center', fontsize=24, fontweight='bold')
+                ax.set_xlim(0, 1)
+                ax.set_ylim(0, 1)
+                ax.axis('off')
+                ax.set_title("Hasil Prediksi")
+                st.pyplot(fig)
+            
+        except Exception as e:
+            st.error(f"Error dalam prediksi: {str(e)}")
+            st.write("Pastikan file model dan scaler tersedia dan format input benar.")
 
-st.write(f"Model ini dilatih dengan {model.n_features_in_} fitur")
-st.write("Masukkan data pelanggan:")
+except FileNotFoundError as e:
+    st.error("❌ Model atau scaler tidak ditemukan!")
+    st.write("Pastikan file berikut tersedia:")
+    st.write("- `models/kmeans_model.pkl`")
+    st.write("- `models/scaler.pkl`")
+    st.write(f"Error detail: {str(e)}")
+except Exception as e:
+    st.error(f"Error dalam memuat aplikasi: {str(e)}")
 
-# Input fitur
-avg_credit = st.slider("Batas/Limit Credit Rata-Rata", 3000.0, 34574.0, 15000.0)
-total_credit_card = st.slider("Jumlah Kartu Kredit", 1.0, 10.0, 4.0)
-total_visit_bank = st.slider("Jumlah Kunjungan ke Bank", 0.0, 5.0, 2.0)
-total_visit_online = st.slider("Jumlah Kunjungan Online", 0.0, 15.0, 5.0)
-total_calls_made = st.slider("Jumlah Panggilan", 0.0, 10.0, 3.0)
-
-# Buat dataframe dengan nama kolom sesuai yang kamu mau
-data = {
-    'Avg_Credit_Limit': [avg_credit],
-    'Total_Credit_Cards': [total_credit_card],
-    'Total_visits_bank': [total_visit_bank],
-    'Total_visits_online': [total_visit_online],
-    'Total_calls_made': [total_calls_made]
-}
-
-df = pd.DataFrame(data)
-
-st.write(df)  # Tampilkan dataframe
-
-# Pastikan fitur yang dipakai model sama dengan ini
-fitur = ['Avg_Credit_Limit', 'Total_Credit_Cards', 'Total_visits_bank', 'Total_visits_online', 'Total_calls_made']
-
-# Prediksi cluster dengan model
-pred_cluster = model.predict(df[fitur])
-
-# Prediksi klaster
-# pred_cluster = model.predict(df[['avg_credit', 'total_credit_card', 'total_visit_bank', 'total_visit_online', 'total_calls_made']])[0]
-st.success(f"Pelanggan ini termasuk dalam **Cluster {pred_cluster}**")
-
-# st.write(f"## Data Pelanggan dalam ClusterM {pred_cluster}")
-# # ---- Visualisasi Cluster ----
-# st.subheader("Visualisasi Klaster Pelanggan (PCA 2D)")
-
-# # Dummy data (untuk simulasi visualisasi klaster)
-# np.random.seed(42)
-# dummy_data = np.vstack([
-#     np.random.normal([10000, 3, 1, 2, 1], [2000, 1, 1, 1, 1], size=(50, 5)),
-#     np.random.normal([20000, 5, 2, 4, 2], [2000, 1, 1, 1, 1], size=(50, 5)),
-#     np.random.normal([30000, 7, 3, 6, 3], [2000, 1, 1, 1, 1], size=(50, 5)),
-# ])
-
-# dummy_labels = model.predict(dummy_data)
-
-# # Gabungkan data dummy dan input user
-# input_array = input_df.to_numpy()
-# full_data = np.vstack([dummy_data, input_array])
-# full_labels = np.append(dummy_labels, pred_cluster)
-
-# # PCA untuk reduksi dimensi ke 2D
-# pca = PCA(n_components=2)
-# reduced_data = pca.fit_transform(full_data)
-
-# # Plot klaster
-# fig, ax = plt.subplots()
-# colors = ['green', 'blue', 'orange', 'purple', 'brown']
-
-# for i in range(model.n_clusters):
-#     points = reduced_data[full_labels == i]
-#     ax.scatter(points[:, 0], points[:, 1], color=colors[i], label=f"Cluster {i}", alpha=0.5)
-
-# # Tandai input user
-# ax.scatter(reduced_data[-1, 0], reduced_data[-1, 1], c='black', s=150, edgecolors='white', label="Input Anda")
-
-# ax.set_xlabel("Komponen Utama 1")
-# ax.set_ylabel("Komponen Utama 2")
-# ax.legend()
-# st.pyplot(fig)
+# Sidebar dengan informasi tambahan
+with st.sidebar:
+    st.header("ℹ️ Informasi Aplikasi")
+    st.write("""
+    **Tentang Aplikasi:**
+    - Menggunakan algoritma K-Means Clustering
+    - Fitur input telah dinormalisasi
+    - Visualisasi menggunakan PCA (Principal Component Analysis)
+    
+    **Cara Penggunaan:**
+    1. Atur nilai untuk setiap fitur pelanggan
+    2. Klik tombol 'Prediksi Cluster'
+    3. Lihat hasilnya dan visualisasi
+    """)
+    
+    st.header("🔧 Pengaturan")
+    show_raw_data = st.checkbox("Tampilkan data mentah")
+    
+    if show_raw_data and 'new_data' in locals():
+        st.write("**Data Input (Raw):**")
+        st.json(new_data.to_dict('records')[0])
