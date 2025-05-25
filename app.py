@@ -6,11 +6,10 @@ import os
 import pandas as pd
 from sklearn.decomposition import PCA
 
-# Load model dan scaler
 @st.cache_resource
 def load_models():
     kmeans_model = joblib.load('models/kmeans_model.pkl')
-    scaler = joblib.load('models/scaler.pkl')  # Pastikan scaler ada di folder models
+    scaler = joblib.load('models/scaler.pkl')
     return kmeans_model, scaler
 
 try:
@@ -20,7 +19,6 @@ try:
     
     st.write("## Masukkan data pelanggan:")
     
-    # Input fitur dengan kolom untuk layout yang lebih rapi
     col1, col2 = st.columns(2)
     
     with col1:
@@ -32,7 +30,6 @@ try:
         total_visit_online = st.slider("Jumlah Kunjungan Online", 0, 15, 5)
         total_calls_made = st.slider("Jumlah Panggilan", 0, 10, 3)
     
-    # Membuat dataframe dari input
     new_data = pd.DataFrame({
         'Avg_Credit_Limit': [avg_credit],
         'Total_Credit_Cards': [total_credit_card],
@@ -41,26 +38,20 @@ try:
         'Total_calls_made': [total_calls_made]
     })
     
-    # Kolom yang akan di-scale
     columns_to_scale = ['Avg_Credit_Limit', 'Total_Credit_Cards', 'Total_visits_bank', 
                        'Total_visits_online', 'Total_calls_made']
     
-    # Tombol untuk prediksi
     if st.button("Prediksi Cluster", type="primary"):
         try:
             st.write("### Data yang Dimasukkan:")
             st.dataframe(new_data, use_container_width=True)
             
-            # Scaling data
             new_data_scaled = scaler.transform(new_data[columns_to_scale])
             
-            # Prediksi cluster
             predicted_cluster = kmeans_model.predict(new_data_scaled)
             
-            # Tampilkan hasil prediksi
             st.success(f"🎯 Pelanggan ini termasuk dalam **Cluster {predicted_cluster[0]}**")
             
-            # Interpretasi cluster (opsional - sesuaikan dengan domain knowledge Anda)
             cluster_interpretation = {
                 0: "Low Value Customer - Pelanggan dengan aktivitas dan limit kredit rendah",
                 1: "Medium Value Customer - Pelanggan dengan aktivitas dan limit kredit sedang", 
@@ -70,10 +61,8 @@ try:
             if predicted_cluster[0] in cluster_interpretation:
                 st.info(f"📊 **Interpretasi**: {cluster_interpretation[predicted_cluster[0]]}")
             
-            # Visualisasi klaster
             st.write("### Visualisasi Posisi Pelanggan dalam Cluster")
             
-            # Cek apakah file data lengkap tersedia
             data_file_paths = ["customer_data.csv", "models/customer_data.csv", "data/Credit Card Customer Data.csv"]
             full_data = None
             
@@ -87,10 +76,8 @@ try:
                         continue
             
             if full_data is not None:
-                # Pastikan kolom yang diperlukan ada
                 required_columns = columns_to_scale
                 if all(col in full_data.columns for col in required_columns):
-                    # Ambil sample data untuk visualisasi (untuk performa)
                     if len(full_data) > 1000:
                         sample_data = full_data.sample(n=1000, random_state=42)
                     else:
