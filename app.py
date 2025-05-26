@@ -20,15 +20,42 @@ try:
     st.write("## Masukkan data pelanggan:")
     
     col1, col2 = st.columns(2)
-    
+
     with col1:
-        avg_credit = st.slider("Batas/Limit Credit Rata-Rata", 3000.0, 34574.0, 15000.0)
-        total_credit_card = st.slider("Jumlah Kartu Kredit", 1, 10, 4)
-        total_visit_bank = st.slider("Jumlah Kunjungan ke Bank", 0, 5, 2)
-    
+        avg_credit = st.number_input(
+            "Batas/Limit Credit Rata-Rata",
+            min_value=3000.0,
+            max_value=200000.0,
+            value=18000.0,
+            step=1000.0
+        )
+        total_credit_card = st.slider(
+            "Jumlah Kartu Kredit",
+            min_value=1,
+            max_value=10,
+            value=5
+        )
+        total_visit_bank = st.slider(
+            "Jumlah Kunjungan ke Bank",
+            min_value=0,
+            max_value=5,
+            value=2
+        )
+
     with col2:
-        total_visit_online = st.slider("Jumlah Kunjungan Online", 0, 15, 5)
-        total_calls_made = st.slider("Jumlah Panggilan", 0, 10, 3)
+        total_visit_online = st.slider(
+            "Jumlah Kunjungan Online",
+            min_value=0,
+            max_value=15,
+            value=2
+        )
+        total_calls_made = st.slider(
+            "Jumlah Panggilan",
+            min_value=0,
+            max_value=10,
+            value=3
+        )
+
     
     new_data = pd.DataFrame({
         'Avg_Credit_Limit': [avg_credit],
@@ -47,8 +74,8 @@ try:
             st.dataframe(new_data, use_container_width=True)
             
             new_data_scaled = scaler.transform(new_data[columns_to_scale])
-            
-            predicted_cluster = kmeans_model.predict(new_data_scaled)
+            new_data_scaled_df = pd.DataFrame(new_data_scaled, columns=columns_to_scale)
+            predicted_cluster = kmeans_model.predict(new_data_scaled_df)
             
             st.success(f"🎯 Pelanggan ini termasuk dalam **Cluster {predicted_cluster[0]}**")
             
