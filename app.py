@@ -80,9 +80,9 @@ try:
             st.success(f"🎯 Pelanggan ini termasuk dalam **Cluster {predicted_cluster[0]}**")
             
             cluster_interpretation = {
-                0: "Low Value Customer - Pelanggan dengan aktivitas dan limit kredit rendah",
-                1: "Medium Value Customer - Pelanggan dengan aktivitas dan limit kredit sedang", 
-                2: "High Value Customer - Pelanggan dengan aktivitas dan limit kredit tinggi"
+                0: "High Credit Limit Group",
+                1: "Medium Credit Limit Group", 
+                2: "Low Value Customer"
             }
             
             if predicted_cluster[0] in cluster_interpretation:
@@ -216,6 +216,11 @@ with st.sidebar:
     1. Atur nilai untuk setiap fitur pelanggan
     2. Klik tombol 'Prediksi Cluster'
     3. Lihat hasilnya dan visualisasi
+             
+    Profil Pelanggan:
+    - High Credit Limit Group: Segmen ini terdiri dari pelanggan bernilai tinggi yang merupakan digital-native users. Mereka memiliki kepercayaan tinggi dari bank (ditunjukkan dengan limit kredit besar) dan sudah terbiasa menggunakan layanan perbankan digital. Karakteristik mandiri dan tidak memerlukan banyak bantuan manual menunjukkan tingkat financial literacy yang baik.
+    - Medium Credit Limit Group: Pelanggan dengan pendekatan tradisional yang masih mengandalkan layanan tatap muka di cabang bank. Meskipun memiliki nilai menengah, mereka menunjukkan loyalitas tinggi melalui kunjungan rutin ke bank. Segmen ini memiliki potensi besar untuk ditingkatkan nilainya melalui edukasi dan migrasi ke channel digital.
+    - Low Credit Limit Group: Segmen dengan nilai transaksi rendah namun membutuhkan banyak dukungan customer service. Tingginya frekuensi panggilan dapat mengindikasikan kurangnya pemahaman terhadap produk/layanan atau ketidakpuasan. Dari perspektif cost-to-serve, segmen ini memerlukan pendekatan efisiensi operasional.
     """)
     
     st.header("🔧 Pengaturan")
