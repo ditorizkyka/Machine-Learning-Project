@@ -80,9 +80,9 @@ try:
             st.success(f"🎯 Pelanggan ini termasuk dalam **Cluster {predicted_cluster[0]}**")
             
             cluster_interpretation = {
-                0: "High Credit Limit Group",
+                0: "Low Credit Limit Group",
                 1: "Medium Credit Limit Group", 
-                2: "Low Value Customer"
+                2: "High Credit Limit Group"
             }
             
             if predicted_cluster[0] in cluster_interpretation:
